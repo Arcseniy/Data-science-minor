@@ -1,0 +1,316 @@
+---
+title: 'HW 1: исследование проблем в авиаперевозках и предложения по улучшению сервиса'
+author: "Белов Арсений, ambelov_1"
+output: html_document
+---
+
+### Задача
+
+На основе данных (и выданных вопросов) постараться выяснить:
+
+* Какие проблемы есть в авиаперевозках
+* Какие улучшения можно предложить на основе выводов по данным
+
+### Загрузка данных и преобразование
+
+***Загруженные данные - четыре датафрейма:***
+
+* Arline
+* Airport
+* Lounge
+* Seat
+
+***Преобразования данных:***
+
+* Исключены незаполненные строки
+* В каждом датасете выбраны нужные объекты для анализа (подробнее в описании каждой задачи)
+
+
+```{r message = FALSE, warning=FALSE, echo = F, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(R3PO)
+library(tidyr)
+
+airline = get_hw1_data(df_name = "airline")
+airport = get_hw1_data(df_name = "airport")
+lounge = get_hw1_data(df_name = "lounge")
+seat = get_hw1_data(df_name = "seat")
+
+get_hw1_questions()
+```
+
+### Вопросы
+
+
+#### ***1) Люди из каких стран ниже всего оценивают wi-fi в аэропортах?***
+
+
+**Данные:** Датасеты, используемые для ответа на данный вопрос - airline, airport, lounge
+
+**Действия для преобразования данных:**
+
+* Выбор нужных переменных из датасетов (страна автора отзыва, оценка wifi)
+* Исключение неизвестных данных (строки, содержащие "not answered") 
+* Объединение отсортированных датасетов в один для удобства
+* Исключение строк, оценка которых выше 5
+* Добавления переменных в датасет для учёта средних значений по стране (а в дальнейшем и в мире)
+* Группировка повторяющихся стран для общей оценки значений
+* Выбор стран, среднее значение которых ниже среднего значения по миру
+
+```{r message = FALSE, warning=FALSE, echo = F}
+# код для ответа на вопрос 1:
+airline_1 = airline
+airport_1 = airport
+lounge_1 = lounge
+
+# Выбираю нужные переменные из датафреймов
+airline_1 = select(airline_1, author_country, wifi_connectivity_rating)
+airport_1 = select(airport_1, author_country, wifi_connectivity_rating)
+lounge_1 = select(lounge_1, author_country, wifi_connectivity_rating)
+
+# Убираю неизвестные данные
+airline_1 = na.omit(airline_1)
+airport_1 = na.omit(airport_1)
+lounge_1 = na.omit(lounge_1)
+
+# Объединяю всё в один датафрейм
+lounge_1 = rbind(airline_1, airport_1, lounge_1)
+
+#Исключение строк, оценка за wifi которых выше 5
+lounge_1 = filter(lounge_1, !str_detect(lounge_1$wifi_connectivity_rating, "10"))
+
+# Добавляю новую переменную, в которой будут храниться средние значения по стране
+lounge_1 = mutate(lounge_1, results_country = wifi_connectivity_rating * 0)
+
+# Группирую столбец со странами, так как есть одинаковые страны
+lounge_1 = group_by(lounge_1, author_country)
+
+# Записываю средние значения по странам
+lounge_1 = summarise(lounge_1, results_country = mean(wifi_connectivity_rating))
+
+#Переменная, показывающая среднее значение по миру (нужна для графика №1)
+lounge__1 = lounge_1
+mid = mean(lounge__1$results_country)
+#mid
+
+# Оставляю только те значения, которые меньше "мирового" среднего значения (среднее значение из средних значений)
+lounge_1 = filter(lounge_1, results_country < mean(lounge_1$results_country))
+
+# Записываю в список найденные страны и вывожу их
+#ans = c(lounge_1$author_country)
+#ans
+
+# нужные преобразования, построение графика, если нужен
+ggplot(data = lounge__1) +
+        geom_bar(aes(y = author_country, x = results_country), stat = "identity", fill="#20B2AA", col="#483D8B", alpha = 0.5) + xlab("Средняя оценка за wifi") + ylab("Страна") + ggtitle("Средняя оценка wifi в аэоропортах\n гражданами разных стран (№1)") + theme(axis.text.y = element_text(size = 7, angle = 0)) + geom_vline(aes(xintercept = mean(lounge__1$results_country)), linetype="dashed", color="#8B0000", size=1) 
+```
+
+**Пояснение:** 
+*Для ответа на вопрос я решил высчитать средние оценки за wifi по каждой стране, а после этого и среднюю оценку по миру, которую демонстрирует красная пунктирная линия (смотреть график №1). В ответ я решил занести все страны, люди которых ставили оценки ниже мировой.* 
+
+**Ответ:** *Argentina, Belgium, Brazil, Canada, Denmark, France, Germany, Greece, Hungary, India, Kuwait, Netherlands, Philippines, Portugal, Romania, Singapore, South Africa, Spain, Sri Lanka, Thailand, United Arab Emirates, United Kingdom, United States.*   
+
+```{r message = FALSE, warning = FALSE, echo = F}
+# Вещь, которая нужна для вывода
+airline_1.2 = airline
+airport_1.2 = airport
+lounge_1.2= lounge
+
+airline_1.2 = select(airline_1.2, overall_rating, wifi_connectivity_rating)
+airport_1.2 = select(airport_1.2, overall_rating, wifi_connectivity_rating)
+lounge_1.2 = select(lounge_1.2, overall_rating, wifi_connectivity_rating)
+
+airline_1.2 = na.omit(airline_1.2)
+airport_1.2 = na.omit(airport_1.2)
+lounge_1.2 = na.omit(lounge_1.2)
+
+lounge_1.2 = rbind(airline_1.2, airport_1.2, lounge_1.2)
+lounge_1.2 = filter(lounge_1.2, !str_detect(lounge_1.2$wifi_connectivity_rating, "10"))
+
+ggplot() + geom_point(data = lounge_1.2, aes(y = overall_rating, x = wifi_connectivity_rating)) + labs(x = "Оценки wifi", y = "Оценки общего впечатления от сервиса") + ggtitle("Зависимость общего впечатления от wifi (№2)") + theme_bw()  
+```
+
+**Вывод:** 
+*Для более точного вывода я решил построить дополнительный график (смотреть график №2), который иллюстрирует зависимость оценок общего впечатления от сервиса от оценок wifi-подключения. Исходя из этого графика, можно сделать вывод, что качество wifi не играет сильной роли при формировании впечатления, так как мы видим, что и при плохом, и при хорошем wifi впечатление может быть и негативным, и позитивным (что на самом-то деле удивительно, потому что 21-ый век, всё-таки). Поэтому рекомендую провести дополнительное исследование на иных данных.*
+
+
+
+#### ***2) Пользователи каких стран чаще употребляют слово "good" (но не "not good") в отрицательных отзывах на аэропорты?***
+
+
+**Данные:** Датасеты, используемые для ответа на данный вопрос - airport, lounge
+
+**Действия для преобразования данных:**
+
+* Выбор нужных переменных из датасетов (страна автора отзыва, отзыв, рекомендую/не рекомендую)
+* Исключение неизвестных данных (строки, содержащие "not answered") 
+* Объединение отсортированных датасетов в один для удобства
+* Исключение строк, где стоит "рекомендую"
+* Исключение отзывов, где нет слов "Good" или "good"
+* Добавление вспомогательной переменной (для подсчёта количества отзывов)
+* Группировка повторяющихся стран в одну
+* Выбор ТОП-3 стран по результатам (можно ознакомиться на графике №3)
+
+```{r message = FALSE, warning=FALSE, echo = F}
+# код для ответа на вопрос 2:
+airport_2 = airport 
+lounge_2 = lounge
+
+# Выбираю нужные переменные из датафреймов
+airport_2 = select(airport_2, author_country, content, recommended)
+lounge_2 = select(lounge_2, author_country, content, recommended)
+
+# Убираю неизвестные данные
+airport_2 = na.omit(airport_2)
+lounge_2 = na.omit(lounge_2)
+
+# Объединяю всё в один датафрейм
+airport_2 = rbind(airport_2, lounge_2)
+
+# Добавляю новую переменную, которая просто нужна для дальнейшего суммирования всех комментариев с ключевым словом
+airport_2 = mutate(airport_2, counter = recommended + 1)
+
+# Оставляю только те строки, у которых в графе "recommended" стоит 0 (то есть турист не рекомендует)
+airport_2 = filter(airport_2, recommended == 0)
+
+# Оставляю только те комментарии, в которых есть "Good" или "good", но нет "Not good" и "not good"
+airport_2 = filter(airport_2, str_detect(airport_2$content, "Good|good"))
+airport_2 = filter(airport_2, !str_detect(airport_2$content, "Not good|not good"))
+
+# Это я проверял действительно ли у меня не осталось комменатриев с "Not good" или "not good"
+#str_detect(airport$content, "Not good|not good")
+
+# Группирую строчки по странам туристов
+airport_2 = group_by(airport_2, author_country)
+
+# Суммирую комментарии туристов из одних стран для каждой страны
+airport_2 = summarise(airport_2, counter = sum(counter))
+
+# нужные преобразования, построение графика, если нужен
+p1 = ggplot(data = airport_2) +
+        geom_bar(aes(y = author_country, x = counter), stat = "identity", fill="#20B2AA", col="#483D8B", alpha = 0.5) + xlab("Количество комментариев (шт.)") + ylab("Страна") + ggtitle("Количество отрицательных отзывов на аэропрты,\n содержащих положительные моменты (№3)") + theme_bw()
+p1 + scale_x_continuous(limits = c(0, 60), breaks = c(seq(0,18, 2), seq(20, 60, 10)))
+```
+
+**Пояснение:** 
+*Для ответа на вопрос я решил отобрать все отзывы, которые несли посыл "не рекомендую" (переменная "recommended" == 0), а после этого посчитал количество таких отзывов, где есть ключевое слово "Good" или "good". В ответ я занёс ТОП-3 страны по количеству таких отзывов.*
+
+**Ответ:** *United Kingdom, Australia, United States.*
+
+**Вывод:** 
+*По полученным результатам видно, что максимальное число путешественников с негативными отзывами проживает в United Kingdom (смотреть график №3). Предлагается провести дальнейшие исследования по оценкам конкретных сервисов и услуг, предлагаемых аэропортами.*
+
+
+
+#### ***3) В какой стране больше всего самолётов AIRBUS? а в какой BOEING?***
+
+**Данные:** Датасеты, используемые для ответа на данный вопрос - airline, seat
+
+**Действия для преобразования данных:**
+
+* Выбор нужных переменных из датасетов (страна автора отзыва, отзыв, рекомендую/не рекомендую)
+* Исключение неизвестных данных (строки, содержащие "not answered") 
+* Объединение отсортированных датасетов в один для удобства
+* Преобразование названий моделей самолётов типа "A3.. или B7.." в Airbus/Boeing соотвественно
+* Выбор строк с искомыми моделями самолётов (Boeing/BOEING/Airbus/AIRBUS) 
+* Добавление двух вспомогательных переменных (для подсчёта количества самолётов каждого типа)
+* Группировка повторяющихся авиакомпаний в одну
+* Получение общего количества самолётов каждого типа у каждой авиакомпании
+* Выбор авиакомпании с максимальным количеством самолётов каждого типа (можно ознакомиться на графике №4)
+
+```{r message = FALSE, warning=FALSE, echo = F}
+# код для ответа на вопрос 3:
+airline_3 = airline 
+seat_3 = seat 
+# Выбираю нужные переменные из датафреймов
+airline_3 = select(airline_3, airline_name, aircraft)
+seat_3 = select(seat_3, airline_name, aircraft)
+
+# Убираю неизвестные данные
+airline_3 = na.omit(airline_3)
+seat_3 = na.omit(seat_3)
+
+# Объединяю всё в один датафрейм
+airline_3 = rbind(airline_3, seat_3)
+
+# Меняю "A" и "B" на "Airbus" и "Boeing" соответсвенно
+incorrect = c(airline_3$aircraft)
+correct = str_replace_all(incorrect, "A\\d","Airbus")
+correct = str_replace_all(correct, "B\\d", "Boeing")
+correct = str_replace_all(correct, "AIRBUS Airbus", "Airbus")
+correct = str_replace_all(correct, "BOEING Boeing", "Boeing")
+correct = str_replace_all(correct, "Airbus Airbus", "Airbus")
+correct = str_replace_all(correct, "Boeing Boeing", "Boening")
+airline_3$aircraft = correct
+
+# Оставляю только строки с искомыми моделями самолётов
+airline_3 = filter(airline_3, str_detect(airline_3$aircraft, "Boeing|BOEING|Airbus|AIRBUS"))
+
+# Добавляю две переменных, которые отвечают за счётчик Boeing и Airbus
+airline_3 = mutate(airline_3, Boeing = str_count(airline_3$aircraft, "Boeing|BOEING"), Airbus = str_count(airline_3$aircraft, "Airbus|AIRBUS"))
+
+# Группирую одинаковые авиалинии в одну
+airline_3 = group_by(airline_3, airline_name)
+
+# Получаю общую сумму самолётов у каждой авиакомпании
+airline_3 = summarise(airline_3, Boeing = sum(Boeing), Airbus = sum(Airbus))
+
+#max_boeing = max(airline_3$Boeing_counter)
+#max_airbus = max(airline_3$Airbus_counter)
+#max_boeing
+#max_airbus
+
+# нужные преобразования, построение графика, если нужен
+
+# Отбираю для графика авиалинии, с количеством самолётов больше двух
+airline_3 = filter(airline_3, Boeing + Airbus > 2)
+
+airline_3 = pivot_longer(airline_3, cols = c(Boeing, Airbus))
+ggplot() +
+geom_bar(data = airline_3, mapping = aes(x = value , y = airline_name, fill = name), stat = "identity", position = "dodge", alpha = 0.5) + labs(x = "Количество самолётов (шт.)", y = "Авиалинии", fill = "Тип самолёта (Boeing/Airbus)") + theme(axis.text.y = element_text(size = 7, angle = 0, vjust = 0.5, hjust = 1)) + ggtitle("Количество Boeing и Airbus у авиакомпаний (№4)") 
+```
+
+**Пояснение:** 
+*Для точного определения принадлежности авиакомпании к стране требуется отдельная база данных, которая в рамках данной задачи не была предоставлена. Соотвественно, найдя авиакомпании с максимальным количеством самолётов каждого типа, я определил принадлежность авиакомпании - "победителя" к стране с помощью интернета: "british-airways" - United Kingdom, "lufthansa" - Germany. На графике №4 указаны авиакомпании с количеством самолётов больше двух в совокупности. На графике №5 отражены страны с наибольшим количеством самолётов каждого типа.*
+
+```{r message = FALSE, warning=FALSE, echo = F}
+airline__3 = airline_3
+airline__3 = filter(airline__3, str_detect(airline__3$airline_name, "british-airways|lufthansa"))
+country = c(1:4)
+airline__3 = cbind(airline__3, country)
+airline__3$country = c("United Kingdom", "United Kingdom", "Germany", "Germany")
+ggplot() + geom_bar(data = airline__3, mapping = aes(y = value , x = country, fill = name), stat = "identity", position = "dodge", alpha = 0.5) + labs(y = "Количество самолётов (шт.)", x = "Страна", fill = "Тип самолёта (Boeing/Airbus)") + theme(axis.text.x = element_text(size = 10, angle = 0, vjust = 0, hjust = 0.5)) + ggtitle('Количество Boeing и Airbus у стран-"победителей" (№5)') + scale_y_continuous(limits = c(0, 15), breaks = c(seq(0,15, 1)))
+```
+
+
+**Ответ:** United Kingdom - Boeing, Germany - Airbus
+
+**Вывод:** 
+*Из полученных результатов можно сделать вывод, что путешественники чаще всего выбирают для поездок авиакомпании "british-airways" и "lufthansa", потому что их маршрутная карта разнообразнее, чем у других авиакомпаний. В качестве дальнейших исследований предлагаю проанализировать предпочтения клиентов в выборе типов самолётов (Boeing/Airbus) и предоставить отчёт в авиакомпании для планирования будущих закупок самолётов.*
+
+### Дэшборд
+
+Полученные выводы обобщены в виде дэшборда со следующими элементами 
+
+**Элемент 1:** 
+ 
+ * График №1
+ * Ответ на вопрос: Люди из каких стран ниже всего оценивают wi-fi в аэропортах?
+ * Тип - столбчатая диаграмма, в которой каждый горизонтальный столбец демонстрирует среднюю оценку за wifi путешественников из конкретной страны. Также присутсвует вертикальная линия, указывающаяя на среднее мировое значение оценки за wifi. Данный график был использован, потому что он позволяет отобразить переменную (средняя оценка за wifi) по категории (страна).
+ 
+**Элемент 2:** 
+ 
+ * График №3
+ * Ответ на вопрос: Пользователи каких стран чаще употребляют слово "good" (но не "not good") в отрицательных отзывах на аэропорты?
+ * Тип - столбчатая диаграмма, в которой наглядно визуализирована информация по количеству отрицательных отзывов (переменная), сделанных представителями разных стран (категории).
+ 
+**Элемент 3:** 
+ 
+ * График №5
+ * Ответ на вопрос: В какой стране больше всего самолётов AIRBUS? а в какой BOEING?
+ * Тип - столбчатая диаграмма, иллюстрирующая страны (категории), владеющие наибольшим количеством самолётов определённого типа (переменная).
+ 
+### Общие выводы
+
+*Во-первых, я считаю, что мой анализ будет полезен для аэропотов, которые фигурировали в данных, так как он содержит информацию о проблемах, с которыми сталкиваются путешественники. Также он даёт информацию о том, пассажиры из каких стран наиболее требовательны к качеству оказываемых услуг. Это позволит аэропортам улучшить сервис и повысить качество предоставляемых услуг. Во-вторых, отчёт будет полезен авиакомпаниям и позволит руководству компании принимать решения о приобритении самолётов в будущем.* 
